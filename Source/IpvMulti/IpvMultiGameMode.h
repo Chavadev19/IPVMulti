@@ -20,6 +20,15 @@ public:
 	void OnMissionCompleted(APawn* InPawn);
 	/** Constructor */
 	AIpvMultiGameMode();
+	
+protected:
+	UPROPERTY(EditDefaultsOnly,Category="Gamemode")
+	TSubclassOf<AActor> SpectatorViewClass;
+	
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Gamemode")
+	float BlendTime=0.5f;
+	
+	void UpdateViewTargetCamera(APawn* InPawn);
 };
 
 
