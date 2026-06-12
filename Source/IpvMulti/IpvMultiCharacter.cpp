@@ -3,7 +3,6 @@
 #include "IpvMultiCharacter.h"
 #include "Engine/LocalPlayer.h"
 #include "Net/UnrealNetwork.h"    
-#include "Engine/Engine.h"
 #include "Camera/CameraComponent.h"
 #include "Components/CapsuleComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
@@ -15,6 +14,13 @@
 #include "InputActionValue.h"
 #include "IpvMulti.h"
 #include "Kismet/GameplayStatics.h"
+#include "Engine/GameEngine.h"
+#include "Engine/GameViewportClient.h"
+#include "Widgets/SOverlay.h"
+#include "Widgets/Layout/SBox.h"
+#include "Widgets/Layout/SBorder.h"
+#include "Widgets/Notifications/SProgressBar.h"
+#include "Styling/CoreStyle.h"
 
 AIpvMultiCharacter::AIpvMultiCharacter()
 {
@@ -62,6 +68,118 @@ AIpvMultiCharacter::AIpvMultiCharacter()
 	//Initialize fire rate
 	FireRate = 0.25f;
 	bIsFiringWeapon = false;
+
+	HealthBarHiddenLevelNames.Add(TEXT("L_MainMenu"));
+}
+
+void AIpvMultiCharacter::BeginPlay()
+{
+	Super::BeginPlay();
+
+	if (bIsDead)
+	{
+		HandleDeathVisual();
+	}
+
+	if (IsLocallyControlled())
+	{
+		EnsureHealthBarWidget();
+		UpdateHealthHUD();
+	}
+}
+
+void AIpvMultiCharacter::EndPlay(const EEndPlayReason::Type EndPlayReason)
+{
+	RemoveHealthBarWidget();
+	Super::EndPlay(EndPlayReason);
+}
+
+void AIpvMultiCharacter::PossessedBy(AController* NewController)
+{
+	Super::PossessedBy(NewController);
+
+	if (IsLocallyControlled())
+	{
+		EnsureHealthBarWidget();
+		UpdateHealthHUD();
+	}
+}
+
+void AIpvMultiCharacter::OnRep_Controller()
+{
+	Super::OnRep_Controller();
+
+	if (IsLocallyControlled())
+	{
+		EnsureHealthBarWidget();
+		UpdateHealthHUD();
+	}
+}
+
+bool AIpvMultiCharacter::ShouldDisplayHealthBar() const
+{
+	if (!GetWorld())
+	{
+		return false;
+	}
+
+	const FString CurrentLevelName = UGameplayStatics::GetCurrentLevelName(this, true);
+	for (const FString& HiddenLevelName : HealthBarHiddenLevelNames)
+	{
+		if (CurrentLevelName.Equals(HiddenLevelName, ESearchCase::IgnoreCase))
+		{
+			return false;
+		}
+	}
+
+	return true;
+}
+
+void AIpvMultiCharacter::EnsureHealthBarWidget()
+{
+	if (!IsLocallyControlled() || !ShouldDisplayHealthBar() || HealthBarSlate.IsValid())
+	{
+		return;
+	}
+
+	HealthBarSlate = SNew(SProgressBar)
+		.Percent(1.f)
+		.BarFillType(EProgressBarFillType::LeftToRight);
+
+	HealthBarContainer = SNew(SOverlay)
+		+ SOverlay::Slot()
+		.HAlign(HAlign_Left)
+		.VAlign(VAlign_Top)
+		.Padding(FMargin(24.f, 24.f, 0.f, 0.f))
+		[
+			SNew(SBorder)
+			.BorderImage(FCoreStyle::Get().GetBrush("ToolPanel.GroupBorder"))
+			.Padding(FMargin(4.f))
+			[
+				SNew(SBox)
+				.WidthOverride(320.f)
+				.HeightOverride(28.f)
+				[
+					HealthBarSlate.ToSharedRef()
+				]
+			]
+		];
+
+	if (GEngine && GEngine->GameViewport)
+	{
+		GEngine->GameViewport->AddViewportWidgetContent(HealthBarContainer.ToSharedRef(), 10);
+	}
+}
+
+void AIpvMultiCharacter::RemoveHealthBarWidget()
+{
+	if (HealthBarContainer.IsValid() && GEngine && GEngine->GameViewport)
+	{
+		GEngine->GameViewport->RemoveViewportWidgetContent(HealthBarContainer.ToSharedRef());
+	}
+
+	HealthBarContainer.Reset();
+	HealthBarSlate.Reset();
 }
 
 void AIpvMultiCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
@@ -70,8 +188,8 @@ void AIpvMultiCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputC
 	if (UEnhancedInputComponent* EnhancedInputComponent = Cast<UEnhancedInputComponent>(PlayerInputComponent)) {
 		
 		// Jumping
-		EnhancedInputComponent->BindAction(JumpAction, ETriggerEvent::Started, this, &ACharacter::Jump);
-		EnhancedInputComponent->BindAction(JumpAction, ETriggerEvent::Completed, this, &ACharacter::StopJumping);
+		EnhancedInputComponent->BindAction(JumpAction, ETriggerEvent::Started, this, &AIpvMultiCharacter::DoJumpStart);
+		EnhancedInputComponent->BindAction(JumpAction, ETriggerEvent::Completed, this, &AIpvMultiCharacter::DoJumpEnd);
 
 		// Moving
 		EnhancedInputComponent->BindAction(MoveAction, ETriggerEvent::Triggered, this, &AIpvMultiCharacter::Move);
@@ -109,6 +227,11 @@ void AIpvMultiCharacter::Look(const FInputActionValue& Value)
 
 void AIpvMultiCharacter::DoMove(float Right, float Forward)
 {
+	if (bIsDead)
+	{
+		return;
+	}
+
 	if (GetController() != nullptr)
 	{
 		// find out which way is forward
@@ -129,6 +252,11 @@ void AIpvMultiCharacter::DoMove(float Right, float Forward)
 
 void AIpvMultiCharacter::DoLook(float Yaw, float Pitch)
 {
+	if (bIsDead)
+	{
+		return;
+	}
+
 	if (GetController() != nullptr)
 	{
 		// add yaw and pitch input to controller
@@ -139,12 +267,22 @@ void AIpvMultiCharacter::DoLook(float Yaw, float Pitch)
 
 void AIpvMultiCharacter::DoJumpStart()
 {
+	if (bIsDead)
+	{
+		return;
+	}
+
 	// signal the character to jump
 	Jump();
 }
 
 void AIpvMultiCharacter::DoJumpEnd()
 {
+	if (bIsDead)
+	{
+		return;
+	}
+
 	// signal the character to stop jumping
 	StopJumping();
 }
@@ -176,36 +314,35 @@ void AIpvMultiCharacter::CallClientTravel(const FString& Address)
 void AIpvMultiCharacter::GetLifetimeReplicatedProps(TArray <FLifetimeProperty>& OutLifetimeProps) const    
 {       
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);   
-	//Replicate current health.       
-	DOREPLIFETIME(AIpvMultiCharacter, CurrentHealth);   
+	DOREPLIFETIME(AIpvMultiCharacter, CurrentHealth);
+	DOREPLIFETIME(AIpvMultiCharacter, bIsDead);
+}
+
+void AIpvMultiCharacter::UpdateHealthHUD()
+{
+	if (!IsLocallyControlled())
+	{
+		return;
+	}
+
+	if (!ShouldDisplayHealthBar())
+	{
+		RemoveHealthBarWidget();
+		return;
+	}
+
+	EnsureHealthBarWidget();
+
+	if (HealthBarSlate.IsValid())
+	{
+		const float Percent = MaxHealth > 0.f ? FMath::Clamp(CurrentHealth / MaxHealth, 0.f, 1.f) : 0.f;
+		HealthBarSlate->SetPercent(Percent);
+	}
 }
 
 void AIpvMultiCharacter::OnHealthUpdate()
 {
-	//Client-specific functionality
-	if (IsLocallyControlled())
-	{
-		FString healthMessage = FString::Printf(TEXT("You now have %f health remaining."), CurrentHealth);
-		GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Blue, healthMessage);
- 
-		if (CurrentHealth <= 0)
-		{
-			FString deathMessage = FString::Printf(TEXT("You have been killed."));
-			GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, deathMessage);
-		}
-	}
- 
-	//Server-specific functionality
-	if (GetLocalRole() == ROLE_Authority)
-	{
-		FString healthMessage = FString::Printf(TEXT("%s now has %f health remaining."), *GetFName().ToString(), CurrentHealth);
-		GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Blue, healthMessage);
-	}
- 
-	//Functions that occur on all machines.
-	/*
-		Any special functionality that should occur as a result of damage or death should be placed here.
-	*/
+	UpdateHealthHUD();
 }
 
 void AIpvMultiCharacter::OnRep_CurrentHealth()
@@ -213,31 +350,95 @@ void AIpvMultiCharacter::OnRep_CurrentHealth()
 	OnHealthUpdate();
 }
 
+void AIpvMultiCharacter::OnRep_bIsDead()
+{
+	if (bIsDead)
+	{
+		HandleDeathVisual();
+	}
+}
+
 void AIpvMultiCharacter::SetCurrentHealth(float healthValue)
 {
 	if (GetLocalRole() == ROLE_Authority)
 	{
+		if (bIsDead)
+		{
+			return;
+		}
+
 		CurrentHealth = FMath::Clamp(healthValue, 0.f, MaxHealth);
+
+		if (CurrentHealth <= 0.f)
+		{
+			HandleDeath();
+		}
+
 		OnHealthUpdate();
 	}
 }
 
+void AIpvMultiCharacter::HandleDeath()
+{
+	if (bIsDead)
+	{
+		return;
+	}
+
+	bIsDead = true;
+	HandleDeathVisual();
+}
+
+void AIpvMultiCharacter::HandleDeathVisual()
+{
+	if (bDeathVisualApplied)
+	{
+		return;
+	}
+
+	bDeathVisualApplied = true;
+
+	GetCharacterMovement()->DisableMovement();
+	GetCapsuleComponent()->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+
+	if (USkeletalMeshComponent* MeshComponent = GetMesh())
+	{
+		MeshComponent->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
+		MeshComponent->SetCollisionProfileName(UCollisionProfile::PhysicsActor_ProfileName);
+		MeshComponent->SetSimulatePhysics(true);
+	}
+
+	if (IsLocallyControlled())
+	{
+		DisableInput(Cast<APlayerController>(GetController()));
+	}
+
+	UpdateHealthHUD();
+}
+
 float AIpvMultiCharacter::TakeDamage(float DamageTaken, struct FDamageEvent const& DamageEvent, AController* EventInstigator, AActor* DamageCauser)
 {
-	float damageApplied = CurrentHealth - DamageTaken;
-	SetCurrentHealth(damageApplied);
-	return damageApplied;
+	if (GetLocalRole() != ROLE_Authority || bIsDead)
+	{
+		return 0.f;
+	}
+
+	const float DamageApplied = FMath::Min(DamageTaken, CurrentHealth);
+	SetCurrentHealth(CurrentHealth - DamageTaken);
+	return DamageApplied;
 }
 
 void AIpvMultiCharacter::StartFire()
 {
-	if (!bIsFiringWeapon)
+	if (bIsDead || bIsFiringWeapon)
 	{
-		bIsFiringWeapon = true;
-		UWorld* World = GetWorld();
-		World->GetTimerManager().SetTimer(FiringTimer, this, &AIpvMultiCharacter::StopFire, FireRate, false);
-		HandleFire();
+		return;
 	}
+
+	bIsFiringWeapon = true;
+	UWorld* World = GetWorld();
+	World->GetTimerManager().SetTimer(FiringTimer, this, &AIpvMultiCharacter::StopFire, FireRate, false);
+	HandleFire();
 }
  
 void AIpvMultiCharacter::StopFire()
@@ -247,6 +448,11 @@ void AIpvMultiCharacter::StopFire()
  
 void AIpvMultiCharacter::HandleFire_Implementation()
 {
+	if (bIsDead)
+	{
+		return;
+	}
+
 	FVector spawnLocation = GetActorLocation() + ( GetActorRotation().Vector()  * 100.0f ) + (GetActorUpVector() * 50.0f);
 	FRotator spawnRotation = GetActorRotation();
  
@@ -257,6 +463,6 @@ void AIpvMultiCharacter::HandleFire_Implementation()
 
 	if (ProjectileClass)
 	{
-		AThirdPersonMPProjectile* spawnedProjectile = GetWorld()->SpawnActor<AThirdPersonMPProjectile>(ProjectileClass, spawnLocation, spawnRotation, spawnParameters);
+		GetWorld()->SpawnActor<AThirdPersonMPProjectile>(ProjectileClass, spawnLocation, spawnRotation, spawnParameters);
 	}
 }

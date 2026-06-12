@@ -17,14 +17,17 @@ public class IpvMulti : ModuleRules
 			"AIModule",
 			"StateTreeModule",
 			"GameplayStateTreeModule",
-			"UMG",
-			"Slate"
+			"UMG"
 		});
 
-		PrivateDependencyModuleNames.AddRange(new string[] { });
+		PrivateDependencyModuleNames.AddRange(new string[] {
+			"Slate",
+			"SlateCore"
+		});
 
 		PublicIncludePaths.AddRange(new string[] {
 			"IpvMulti",
+			"IpvMulti/UI",
 			"IpvMulti/Variant_Platforming",
 			"IpvMulti/Variant_Platforming/Animation",
 			"IpvMulti/Variant_Combat",

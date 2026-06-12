@@ -7,7 +7,14 @@
 #include "InputMappingContext.h"
 #include "Blueprint/UserWidget.h"
 #include "IpvMulti.h"
+#include "IpvMultiCharacter.h"
+#include "IpvMultiHealthWidget.h"
 #include "Widgets/Input/SVirtualJoystick.h"
+
+AIpvMultiPlayerController::AIpvMultiPlayerController()
+{
+	HealthWidgetClass = UIpvMultiHealthWidget::StaticClass();
+}
 
 void AIpvMultiPlayerController::BeginPlay()
 {
@@ -30,6 +37,50 @@ void AIpvMultiPlayerController::BeginPlay()
 
 		}
 
+	}
+}
+
+void AIpvMultiPlayerController::OnPossess(APawn* InPawn)
+{
+	Super::OnPossess(InPawn);
+
+}
+
+void AIpvMultiPlayerController::EnsureHealthWidget()
+{
+	if (!IsLocalPlayerController())
+	{
+		return;
+	}
+
+	if (!HealthWidgetClass)
+	{
+		HealthWidgetClass = UIpvMultiHealthWidget::StaticClass();
+	}
+
+	if (HealthWidget)
+	{
+		return;
+	}
+
+	HealthWidget = CreateWidget<UIpvMultiHealthWidget>(this, HealthWidgetClass);
+	if (HealthWidget)
+	{
+		HealthWidget->AddToViewport(10);
+	}
+	else
+	{
+		UE_LOG(LogIpvMulti, Error, TEXT("Could not spawn health HUD widget."));
+	}
+}
+
+void AIpvMultiPlayerController::UpdateHealthDisplay(float Current, float Max)
+{
+	EnsureHealthWidget();
+
+	if (HealthWidget)
+	{
+		HealthWidget->UpdateHealth(Current, Max);
 	}
 }
 

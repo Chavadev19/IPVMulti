@@ -56,10 +56,21 @@ protected:
 	/** The player's current health. When reduced to 0, they are considered dead.*/
 	UPROPERTY(ReplicatedUsing = OnRep_CurrentHealth)
 	float CurrentHealth;
+
+	/** Whether the character is dead. Replicated to all clients for ragdoll visuals. */
+	UPROPERTY(ReplicatedUsing = OnRep_bIsDead)
+	bool bIsDead = false;
+
+	/** Local flag to avoid applying death visuals more than once. */
+	bool bDeathVisualApplied = false;
  
 	/** RepNotify for changes made to current health.*/
 	UFUNCTION()
 	void OnRep_CurrentHealth();
+
+	/** RepNotify for death state. */
+	UFUNCTION()
+	void OnRep_bIsDead();
 
 public:
 
@@ -69,6 +80,11 @@ public:
 	void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 
 protected:
+
+	virtual void BeginPlay() override;
+	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
+	virtual void PossessedBy(AController* NewController) override;
+	virtual void OnRep_Controller() override;
 
 	/** Initialize input action bindings */
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
@@ -81,6 +97,21 @@ protected:
 	/** Called for looking input */
 	void Look(const FInputActionValue& Value);
 	void OnHealthUpdate();
+	void HandleDeath();
+	void HandleDeathVisual();
+	void UpdateHealthHUD();
+	void EnsureHealthBarWidget();
+	void RemoveHealthBarWidget();
+	bool ShouldDisplayHealthBar() const;
+
+	/** Level names where the health bar must stay hidden (ejemplo: main menu). */
+	UPROPERTY(EditDefaultsOnly, Category = "UI")
+	TArray<FString> HealthBarHiddenLevelNames;
+
+	/** Local-only Slate health bar ,no Blueprint widget required. */
+	TSharedPtr<class SProgressBar> HealthBarSlate;
+	TSharedPtr<class SWidget> HealthBarContainer;
+
 	UPROPERTY(EditDefaultsOnly, Category="Gameplay|Projectile")
 	TSubclassOf<class AThirdPersonMPProjectile> ProjectileClass;
  
@@ -149,6 +180,10 @@ public:
 	/** Getter for Current Health.*/
 	UFUNCTION(BlueprintPure, Category="Health")
 	FORCEINLINE float GetCurrentHealth() const { return CurrentHealth; }
+
+	/** Returns whether the character is dead. */
+	UFUNCTION(BlueprintPure, Category = "Health")
+	FORCEINLINE bool IsDead() const { return bIsDead; }
  
 	/** Setter for Current Health. Clamps the value between 0 and MaxHealth and calls OnHealthUpdate. Should only be called on the server.*/
 	UFUNCTION(BlueprintCallable, Category="Health")
@@ -161,4 +196,3 @@ public:
 	UPROPERTY(BlueprintReadWrite)
 	bool bIsCarryingObjective;
 };
-
