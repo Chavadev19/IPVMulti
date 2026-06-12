@@ -160,5 +160,8 @@ public:
 	
 	UPROPERTY(BlueprintReadWrite)
 	bool bIsCarryingObjective;
+	
+	UFUNCTION(BlueprintPure, Category = "Health")
+	float GetHealthPercentage() const { return CurrentHealth / MaxHealth; }
 };
 

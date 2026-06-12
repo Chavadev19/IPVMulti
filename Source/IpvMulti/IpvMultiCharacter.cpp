@@ -14,12 +14,11 @@
 #include "EnhancedInputSubsystems.h"
 #include "InputActionValue.h"
 #include "IpvMulti.h"
+#include "Components/CapsuleComponent.h"
+#include "GameFramework/CharacterMovementComponent.h"
 #include "Kismet/GameplayStatics.h"
 
-void AIpvMultiCharacter::OnRep_CurrentHealth()
-{
-	OnHealthUpdate();
-}
+
 
 AIpvMultiCharacter::AIpvMultiCharacter()
 {
@@ -93,7 +92,10 @@ void AIpvMultiCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputC
 	// Handle firing projectiles
 	PlayerInputComponent->BindAction("Fire", IE_Pressed, this, &AIpvMultiCharacter::StartFire);
 }
-
+void AIpvMultiCharacter::OnRep_CurrentHealth()
+{
+	OnHealthUpdate();
+}
 void AIpvMultiCharacter::Move(const FInputActionValue& Value)
 {
 	// input is a Vector2D
@@ -190,8 +192,8 @@ void AIpvMultiCharacter::OnHealthUpdate()
 	//Client-specific functionality
 	if (IsLocallyControlled())
 	{
-		FString healthMessage = FString::Printf(TEXT("You now have %f health remaining."), CurrentHealth);
-		GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Blue, healthMessage);
+		//FString healthMessage = FString::Printf(TEXT("You now have %f health remaining."), CurrentHealth);
+	//	GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Blue, healthMessage);
  
 		if (CurrentHealth <= 0)
 		{
@@ -203,14 +205,31 @@ void AIpvMultiCharacter::OnHealthUpdate()
 	//Server-specific functionality
 	if (GetLocalRole() == ROLE_Authority)
 	{
-		FString healthMessage = FString::Printf(TEXT("%s now has %f health remaining."), *GetFName().ToString(), CurrentHealth);
-		GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Blue, healthMessage);
+	//	FString healthMessage = FString::Printf(TEXT("%s now has %f health remaining."), *GetFName().ToString(), CurrentHealth);
+	//	GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Blue, healthMessage);
 	}
  
 	//Functions that occur on all machines.
 	/*
 		Any special functionality that should occur as a result of damage or death should be placed here.
 	*/
+	if (CurrentHealth <= 0)
+	{
+	
+		GetCapsuleComponent()->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+		
+		if (GetCharacterMovement())
+		{
+			GetCharacterMovement()->DisableMovement();
+			GetCharacterMovement()->StopMovementImmediately();
+		}
+		
+		if (GetMesh())
+		{
+			GetMesh()->SetCollisionProfileName(TEXT("Ragdoll"));
+			GetMesh()->SetSimulatePhysics(true);
+		}
+	}
 }
 
 void AIpvMultiCharacter::SetCurrentHealth(float healthValue)
