@@ -72,6 +72,12 @@ protected:
 
 	/** Initialize input action bindings */
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
+	
+	UFUNCTION(NetMulticast, Reliable)
+	void Multicast_EnableRagdoll();
+
+	void Die();
+
 
 protected:
 
@@ -105,6 +111,7 @@ protected:
  
 	/** A timer handle used for providing the fire rate delay in-between spawns.*/
 	FTimerHandle FiringTimer;
+	
 
 public:
 

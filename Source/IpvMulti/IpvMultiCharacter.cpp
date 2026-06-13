@@ -103,6 +103,31 @@ void AIpvMultiCharacter::Move(const FInputActionValue& Value)
 	DoMove(MovementVector.X, MovementVector.Y);
 }
 
+void AIpvMultiCharacter::Die()
+{
+	if (GetLocalRole() == ROLE_Authority)
+	{
+		Multicast_EnableRagdoll();
+	}
+}
+
+void AIpvMultiCharacter::Multicast_EnableRagdoll_Implementation()
+{
+	GetCharacterMovement()->DisableMovement();
+
+	GetCapsuleComponent()->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+
+	GetMesh()->SetCollisionProfileName(TEXT("Ragdoll"));
+
+	GetMesh()->SetSimulatePhysics(true);
+
+	GetMesh()->SetAllBodiesSimulatePhysics(true);
+
+	GetMesh()->WakeAllRigidBodies();
+
+	GetMesh()->bBlendPhysics = true;
+}
+
 void AIpvMultiCharacter::Look(const FInputActionValue& Value)
 {
 	// input is a Vector2D
@@ -197,6 +222,11 @@ void AIpvMultiCharacter::OnHealthUpdate()
 		{
 			FString deathMessage = FString::Printf(TEXT("You have been killed."));
 			GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, deathMessage);
+
+			if (GetLocalRole() == ROLE_Authority)
+			{
+				Die();
+			}
 		}
 	}
  
