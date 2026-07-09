@@ -10,6 +10,7 @@
 class USpringArmComponent;
 class UCameraComponent;
 class UInputAction;
+class UPawnNoiseEmitterComponent;
 struct FInputActionValue;
 
 DECLARE_LOG_CATEGORY_EXTERN(LogTemplateCharacter, Log, All);
@@ -163,5 +164,10 @@ public:
 	
 	UFUNCTION(BlueprintPure, Category = "Health")
 	float GetHealthPercentage() const { return CurrentHealth / MaxHealth; }
+	
+	protected:
+	
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "AI")
+	TObjectPtr<UPawnNoiseEmitterComponent> NoiseEmitterComp;
 };
 
