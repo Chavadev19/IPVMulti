@@ -3,6 +3,7 @@
 
 #include "Character/AIPawn.h"
 
+#include "IpvMultiGameMode.h"
 #include "Perception/PawnSensingComponent.h"
 
 
@@ -35,6 +36,11 @@ void AAIPawn::PostInitializeComponents()
 void AAIPawn::HandleOnSeenPawn(APawn* InPawn)
 {
 	if (InPawn == nullptr) return;
+	AIpvMultiGameMode* GM = Cast<AIpvMultiGameMode>(GetWorld()->GetAuthGameMode());
+	if (GM)
+	{
+		GM->CompleteMission(InPawn, false);
+	}
 	DrawDebugSphere(GetWorld(), InPawn->GetActorLocation(), 35.0f, 12, FColor::Blue, false, 5.0f);
 }
 

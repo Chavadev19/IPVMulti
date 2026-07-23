@@ -15,9 +15,9 @@ class AIpvMultiGameMode : public AGameModeBase
 	GENERATED_BODY()
 
 public:
-	void CompleteMission(APawn* InPawn);
+	void CompleteMission(APawn* InPawn, bool bIsMissionSucced);
 	UFUNCTION(BlueprintImplementableEvent, Category = "Gamemode")
-	void OnMissionCompleted(APawn* InPawn);
+	void OnMissionCompleted(APawn* InPawn, bool bIsMissionSucced);
 	/** Constructor */
 	AIpvMultiGameMode();
 	

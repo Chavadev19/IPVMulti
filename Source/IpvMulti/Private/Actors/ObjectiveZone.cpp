@@ -42,7 +42,7 @@ void AObjectiveZone::HandleOverlap(UPrimitiveComponent* OverlappedComponent, AAc
 	{
 		AIpvMultiGameMode* GM = Cast<AIpvMultiGameMode>(GetWorld()->GetAuthGameMode());
 		if (GM == nullptr) return;
-		GM->CompleteMission(MyPawn);
+		GM->CompleteMission(MyPawn, true);
 		
 	}
 }

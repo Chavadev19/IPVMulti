@@ -49,4 +49,7 @@ protected:
 	/** Returns true if the player should use UMG touch controls */
 	bool ShouldUseTouchControls() const;
 
+public:
+	UFUNCTION(BlueprintImplementableEvent, Category = "Gamemode")
+	void OnMissionCompleted(APawn* InPawn, bool bIsMissionSucced);
 };
