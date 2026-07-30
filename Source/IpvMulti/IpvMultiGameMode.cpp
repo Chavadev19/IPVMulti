@@ -2,14 +2,35 @@
 
 #include "IpvMultiGameMode.h"
 
+#include "IpvMultiPlayerController.h"
+#include "Game/IpvMultiGameStateBase.h"
 #include "Kismet/GameplayStatics.h"
 
-void AIpvMultiGameMode::CompleteMission(APawn* InPawn)
+void AIpvMultiGameMode::CompleteMission(APawn* InPawn, bool bIsMissionSucced)
 {
 	if (InPawn == nullptr) return;
-	InPawn->DisableInput(nullptr);
-	UpdateViewTargetCamera(InPawn);
-	OnMissionCompleted(InPawn);
+	//InPawn->DisableInput(nullptr);
+	for (FConstPlayerControllerIterator It = GetWorld()->GetPlayerControllerIterator(); It; ++It)
+	{
+		APlayerController* PC = It->Get();
+		if (PC)
+		{
+			AIpvMultiPlayerController* IpvMultiPC = Cast<AIpvMultiPlayerController>(PC);
+			if (IpvMultiPC)
+			{
+				APawn* MyPawn = IpvMultiPC->GetPawn();
+				IpvMultiPC->OnMissionCompleted(MyPawn, bIsMissionSucced); 
+				UpdateViewTargetCamera(MyPawn);
+			}
+		}
+	}
+	
+	AIpvMultiGameStateBase* GS = GetGameState<AIpvMultiGameStateBase>();
+	if (GS)
+	{
+		GS->MulticastOnMissionCompleted(InPawn, bIsMissionSucced);
+	}
+	OnMissionCompleted(InPawn, bIsMissionSucced);
 }
 
 AIpvMultiGameMode::AIpvMultiGameMode()

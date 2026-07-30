@@ -16,6 +16,7 @@
 #include "IpvMulti.h"
 #include "Components/CapsuleComponent.h"
 #include "FallingFloor/FallingFloorGameState.h"
+#include "Components/PawnNoiseEmitterComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "Kismet/GameplayStatics.h"
 
@@ -67,6 +68,9 @@ AIpvMultiCharacter::AIpvMultiCharacter()
 	//Initialize fire rate
 	FireRate = 0.25f;
 	bIsFiringWeapon = false;
+	
+	NoiseEmitterComp = CreateDefaultSubobject<UPawnNoiseEmitterComponent>(TEXT("NoiseEmitterComp"));
+	
 }
 
 void AIpvMultiCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
