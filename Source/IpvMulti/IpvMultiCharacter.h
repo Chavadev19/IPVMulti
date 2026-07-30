@@ -163,5 +163,12 @@ public:
 	
 	UFUNCTION(BlueprintPure, Category = "Health")
 	float GetHealthPercentage() const { return CurrentHealth / MaxHealth; }
+
+	/**
+	 * Returns false in Falling Floor (and similar) matches so Blueprint BeginPlay
+	 * can skip health / objective / menu widgets and leave only the mode HUD.
+	 */
+	UFUNCTION(BlueprintPure, Category = "UI")
+	bool ShouldShowLegacyPlayerHUD() const;
 };
 

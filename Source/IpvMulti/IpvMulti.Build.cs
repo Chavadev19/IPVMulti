@@ -18,13 +18,17 @@ public class IpvMulti : ModuleRules
 			"StateTreeModule",
 			"GameplayStateTreeModule",
 			"UMG",
-			"Slate"
+			"Slate",
+			"SlateCore"
 		});
 
 		PrivateDependencyModuleNames.AddRange(new string[] { });
 
 		PublicIncludePaths.AddRange(new string[] {
 			"IpvMulti",
+			"IpvMulti/Public",
+			"IpvMulti/Public/Actors",
+			"IpvMulti/Public/FallingFloor",
 			"IpvMulti/Variant_Platforming",
 			"IpvMulti/Variant_Platforming/Animation",
 			"IpvMulti/Variant_Combat",

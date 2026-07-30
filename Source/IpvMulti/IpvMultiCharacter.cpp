@@ -15,6 +15,7 @@
 #include "InputActionValue.h"
 #include "IpvMulti.h"
 #include "Components/CapsuleComponent.h"
+#include "FallingFloor/FallingFloorGameState.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "Kismet/GameplayStatics.h"
 
@@ -250,6 +251,12 @@ float AIpvMultiCharacter::TakeDamage(float DamageTaken, struct FDamageEvent cons
 
 void AIpvMultiCharacter::StartFire()
 {
+	// Falling Floor is movement-only; ignore projectile fire.
+	if (!ShouldShowLegacyPlayerHUD())
+	{
+		return;
+	}
+
 	if (!bIsFiringWeapon)
 	{
 		bIsFiringWeapon = true;
@@ -278,4 +285,16 @@ void AIpvMultiCharacter::HandleFire_Implementation()
 	{
 		AThirdPersonMPProjectile* spawnedProjectile = GetWorld()->SpawnActor<AThirdPersonMPProjectile>(ProjectileClass, spawnLocation, spawnRotation, spawnParameters);
 	}
+}
+
+bool AIpvMultiCharacter::ShouldShowLegacyPlayerHUD() const
+{
+	const UWorld* World = GetWorld();
+	if (!World)
+	{
+		return true;
+	}
+
+	// Falling Floor uses its own minimal HUD (remaining players + win/lose).
+	return World->GetGameState<AFallingFloorGameState>() == nullptr;
 }
