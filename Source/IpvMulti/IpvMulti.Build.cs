@@ -29,6 +29,7 @@ public class IpvMulti : ModuleRules
 			"IpvMulti/Public",
 			"IpvMulti/Public/Actors",
 			"IpvMulti/Public/FallingFloor",
+			"IpvMulti/Public/BalloonBurst",
 			"IpvMulti/Variant_Platforming",
 			"IpvMulti/Variant_Platforming/Animation",
 			"IpvMulti/Variant_Combat",
