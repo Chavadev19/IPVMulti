@@ -24,10 +24,14 @@ void UBalloonBurstUI::NativeConstruct()
 	{
 		Defeat->SetVisibility(ESlateVisibility::Collapsed);
 	}
+	if (UBorder* Draw = GetDraw())
+	{
+		Draw->SetVisibility(ESlateVisibility::Collapsed);
+	}
 	if (UTextBlock* Instructions = GetInstructions())
 	{
 		Instructions->SetText(FText::FromString(
-			TEXT("¡Balloon Burst!\nPulsa ESPACIO repetidamente para inflar tu globo.\nEl primero en reventarlo gana.")));
+			TEXT("¡Balloon Burst!\nPulsa ESPACIO repetidamente para inflar tu globo.\nEl primero en reventarlo gana — ¡cuidado con los empates!")));
 	}
 	if (UTextBlock* Status = GetStatus())
 	{
@@ -76,7 +80,7 @@ TSharedRef<SWidget> UBalloonBurstUI::RebuildWidget()
 
 	RuntimeInstructionsText = WidgetTree->ConstructWidget<UTextBlock>(UTextBlock::StaticClass(), TEXT("InstructionsText"));
 	RuntimeInstructionsText->SetText(FText::FromString(
-		TEXT("¡Balloon Burst!\nPulsa ESPACIO repetidamente para inflar tu globo.\nEl primero en reventarlo gana.")));
+		TEXT("¡Balloon Burst!\nPulsa ESPACIO repetidamente para inflar tu globo.\nEl primero en reventarlo gana — ¡cuidado con los empates!")));
 	FSlateFontInfo InstrFont = RuntimeInstructionsText->GetFont();
 	InstrFont.Size = 20;
 	RuntimeInstructionsText->SetFont(InstrFont);
@@ -167,6 +171,23 @@ TSharedRef<SWidget> UBalloonBurstUI::RebuildWidget()
 		DefeatSlot->SetAlignment(FVector2D(0.5f, 0.5f));
 		DefeatSlot->SetPosition(FVector2D(0.0f, 40.0f));
 		DefeatSlot->SetSize(FVector2D(560.0f, 150.0f));
+	}
+
+	RuntimeDrawBanner = WidgetTree->ConstructWidget<UBorder>(UBorder::StaticClass(), TEXT("DrawBanner"));
+	RuntimeDrawBanner->SetBrushColor(FLinearColor(0.15f, 0.25f, 0.45f, 0.9f));
+	RuntimeDrawBanner->SetVisibility(ESlateVisibility::Collapsed);
+	UTextBlock* DrawText = WidgetTree->ConstructWidget<UTextBlock>(UTextBlock::StaticClass(), TEXT("DrawText"));
+	DrawText->SetText(FText::FromString(TEXT("DRAW")));
+	DrawText->SetFont(BannerFont);
+	DrawText->SetJustification(ETextJustify::Center);
+	DrawText->SetColorAndOpacity(FLinearColor::White);
+	RuntimeDrawBanner->SetContent(DrawText);
+	if (UCanvasPanelSlot* DrawSlot = Root->AddChildToCanvas(RuntimeDrawBanner))
+	{
+		DrawSlot->SetAnchors(FAnchors(0.5f, 0.5f));
+		DrawSlot->SetAlignment(FVector2D(0.5f, 0.5f));
+		DrawSlot->SetPosition(FVector2D(0.0f, 40.0f));
+		DrawSlot->SetSize(FVector2D(560.0f, 150.0f));
 	}
 
 	return Super::RebuildWidget();
@@ -319,6 +340,10 @@ void UBalloonBurstUI::ShowVictory()
 	{
 		Defeat->SetVisibility(ESlateVisibility::Collapsed);
 	}
+	if (UBorder* Draw = GetDraw())
+	{
+		Draw->SetVisibility(ESlateVisibility::Collapsed);
+	}
 	if (UBorder* Victory = GetVictory())
 	{
 		Victory->SetVisibility(ESlateVisibility::Visible);
@@ -338,6 +363,10 @@ void UBalloonBurstUI::ShowDefeat()
 	{
 		Victory->SetVisibility(ESlateVisibility::Collapsed);
 	}
+	if (UBorder* Draw = GetDraw())
+	{
+		Draw->SetVisibility(ESlateVisibility::Collapsed);
+	}
 	if (UBorder* Defeat = GetDefeat())
 	{
 		Defeat->SetVisibility(ESlateVisibility::Visible);
@@ -347,6 +376,29 @@ void UBalloonBurstUI::ShowDefeat()
 		Status->SetText(FText::FromString(TEXT("Otro jugador reventó primero — volviendo al hub...")));
 	}
 	BP_ShowDefeat();
+}
+
+void UBalloonBurstUI::ShowDraw()
+{
+	HideStartBanner();
+
+	if (UBorder* Victory = GetVictory())
+	{
+		Victory->SetVisibility(ESlateVisibility::Collapsed);
+	}
+	if (UBorder* Defeat = GetDefeat())
+	{
+		Defeat->SetVisibility(ESlateVisibility::Collapsed);
+	}
+	if (UBorder* Draw = GetDraw())
+	{
+		Draw->SetVisibility(ESlateVisibility::Visible);
+	}
+	if (UTextBlock* Status = GetStatus())
+	{
+		Status->SetText(FText::FromString(TEXT("¡Empate! Varios globos reventaron a la vez — volviendo al hub...")));
+	}
+	BP_ShowDraw();
 }
 
 UTextBlock* UBalloonBurstUI::GetPlayers() const
@@ -382,4 +434,9 @@ UBorder* UBalloonBurstUI::GetVictory() const
 UBorder* UBalloonBurstUI::GetDefeat() const
 {
 	return DefeatBanner ? DefeatBanner.Get() : RuntimeDefeatBanner.Get();
+}
+
+UBorder* UBalloonBurstUI::GetDraw() const
+{
+	return DrawBanner ? DrawBanner.Get() : RuntimeDrawBanner.Get();
 }

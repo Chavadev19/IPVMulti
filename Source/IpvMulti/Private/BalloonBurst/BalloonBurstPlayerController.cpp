@@ -460,3 +460,19 @@ void ABalloonBurstPlayerController::ClientShowDefeat_Implementation()
 		BalloonBurstUIInstance->ShowDefeat();
 	}
 }
+
+void ABalloonBurstPlayerController::ClientShowDraw_Implementation()
+{
+	if (bResultScreenShown)
+	{
+		return;
+	}
+	bResultScreenShown = true;
+
+	CreateHUD();
+	if (BalloonBurstUIInstance)
+	{
+		BalloonBurstUIInstance->SetVisibility(ESlateVisibility::SelfHitTestInvisible);
+		BalloonBurstUIInstance->ShowDraw();
+	}
+}

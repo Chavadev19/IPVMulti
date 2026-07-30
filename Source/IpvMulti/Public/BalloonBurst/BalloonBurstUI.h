@@ -46,6 +46,9 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "BalloonBurst|UI")
 	void ShowDefeat();
 
+	UFUNCTION(BlueprintCallable, Category = "BalloonBurst|UI")
+	void ShowDraw();
+
 	UFUNCTION(BlueprintImplementableEvent, Category = "BalloonBurst|UI")
 	void BP_UpdatePlayerCount(int32 PlayerCount);
 
@@ -69,6 +72,9 @@ public:
 
 	UFUNCTION(BlueprintImplementableEvent, Category = "BalloonBurst|UI")
 	void BP_ShowDefeat();
+
+	UFUNCTION(BlueprintImplementableEvent, Category = "BalloonBurst|UI")
+	void BP_ShowDraw();
 
 protected:
 	virtual TSharedRef<SWidget> RebuildWidget() override;
@@ -94,6 +100,9 @@ protected:
 	UPROPERTY(BlueprintReadOnly, meta = (BindWidgetOptional), Category = "BalloonBurst|UI")
 	TObjectPtr<UBorder> DefeatBanner;
 
+	UPROPERTY(BlueprintReadOnly, meta = (BindWidgetOptional), Category = "BalloonBurst|UI")
+	TObjectPtr<UBorder> DrawBanner;
+
 	UPROPERTY(Transient) TObjectPtr<UTextBlock> RuntimePlayersText;
 	UPROPERTY(Transient) TObjectPtr<UTextBlock> RuntimeInstructionsText;
 	UPROPERTY(Transient) TObjectPtr<UTextBlock> RuntimeStatusText;
@@ -101,6 +110,7 @@ protected:
 	UPROPERTY(Transient) TObjectPtr<UTextBlock> RuntimeProgressText;
 	UPROPERTY(Transient) TObjectPtr<UBorder> RuntimeVictoryBanner;
 	UPROPERTY(Transient) TObjectPtr<UBorder> RuntimeDefeatBanner;
+	UPROPERTY(Transient) TObjectPtr<UBorder> RuntimeDrawBanner;
 
 	UTextBlock* GetPlayers() const;
 	UTextBlock* GetInstructions() const;
@@ -109,6 +119,7 @@ protected:
 	UTextBlock* GetProgress() const;
 	UBorder* GetVictory() const;
 	UBorder* GetDefeat() const;
+	UBorder* GetDraw() const;
 
 	void HideStartBanner();
 

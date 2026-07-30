@@ -52,6 +52,9 @@ public:
 	UFUNCTION(Client, Reliable)
 	void ClientShowDefeat();
 
+	UFUNCTION(Client, Reliable)
+	void ClientShowDraw();
+
 protected:
 	UPROPERTY(EditAnywhere, Category = "Input|Input Mappings")
 	TArray<TObjectPtr<UInputMappingContext>> DefaultMappingContexts;

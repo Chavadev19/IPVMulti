@@ -58,6 +58,10 @@ void ABalloonBurstGameMode::BeginPlay()
 	CountdownRemaining = FMath::Max(1, MatchStartDelay);
 	GS->SetCountdownSeconds(CountdownRemaining);
 
+	bBurstWindowOpen = false;
+	bResultsFinalized = false;
+	PendingBurstControllers.Reset();
+
 	EnsureArenaFloor();
 	RefreshPlayerStations();
 	SyncPlayerCount();
@@ -192,9 +196,9 @@ void ABalloonBurstGameMode::StartBalloonBurstMatch()
 	}
 }
 
-void ABalloonBurstGameMode::NotifyBalloonBurst(APlayerController* WinnerController)
+void ABalloonBurstGameMode::NotifyBalloonBurst(APlayerController* BurstController)
 {
-	if (!HasAuthority() || !WinnerController || bReturningToHub)
+	if (!HasAuthority() || !BurstController || bReturningToHub || bResultsFinalized)
 	{
 		return;
 	}
@@ -205,16 +209,90 @@ void ABalloonBurstGameMode::NotifyBalloonBurst(APlayerController* WinnerControll
 		return;
 	}
 
-	ABalloonBurstPlayerState* WinnerPS = WinnerController->GetPlayerState<ABalloonBurstPlayerState>();
-	if (!WinnerPS)
+	// Already counted this player for the current burst window.
+	if (PendingBurstControllers.Contains(BurstController))
 	{
 		return;
 	}
 
-	WinnerPS->SetDidWin(true);
-	WinnerPS->SetHasBurstBalloon(true);
+	PendingBurstControllers.Add(BurstController);
 
-	UE_LOG(LogIpvMulti, Warning, TEXT("BalloonBurst winner: %s"), *WinnerPS->GetPlayerName());
+	UE_LOG(LogIpvMulti, Warning, TEXT("BalloonBurst burst candidate: %s (pending=%d)"),
+		BurstController->PlayerState ? *BurstController->PlayerState->GetPlayerName() : TEXT("?"),
+		PendingBurstControllers.Num());
+
+	// Keep accepting near-simultaneous burst RPCs for a short grace period so host RTT
+	// doesn't always win when players effectively tied.
+	if (!bBurstWindowOpen)
+	{
+		bBurstWindowOpen = true;
+		GetWorldTimerManager().ClearTimer(TieResolveTimerHandle);
+		GetWorldTimerManager().SetTimer(
+			TieResolveTimerHandle,
+			this,
+			&ABalloonBurstGameMode::ResolveBurstWindow,
+			FMath::Max(0.05f, TieGraceSeconds),
+			false);
+	}
+}
+
+void ABalloonBurstGameMode::ResolveBurstWindow()
+{
+	if (!HasAuthority() || bReturningToHub || bResultsFinalized)
+	{
+		return;
+	}
+
+	TArray<APlayerController*> BurstControllers;
+	BurstControllers.Reserve(PendingBurstControllers.Num());
+	for (APlayerController* PC : PendingBurstControllers)
+	{
+		if (IsValid(PC))
+		{
+			BurstControllers.Add(PC);
+		}
+	}
+
+	PendingBurstControllers.Reset();
+	bBurstWindowOpen = false;
+	GetWorldTimerManager().ClearTimer(TieResolveTimerHandle);
+
+	if (BurstControllers.Num() == 0)
+	{
+		return;
+	}
+
+	FinalizeMatchResults(BurstControllers);
+}
+
+void ABalloonBurstGameMode::FinalizeMatchResults(const TArray<APlayerController*>& BurstControllers)
+{
+	ABalloonBurstGameState* GS = GetGameState<ABalloonBurstGameState>();
+	if (!GS || !HasAuthority() || bReturningToHub || bResultsFinalized)
+	{
+		return;
+	}
+
+	if (!GS->IsMatchInProgress())
+	{
+		return;
+	}
+
+	// Seal immediately so a late burst RPC cannot reopen another window mid-finalize.
+	bResultsFinalized = true;
+
+	const bool bIsDraw = BurstControllers.Num() >= 2;
+
+	if (bIsDraw)
+	{
+		UE_LOG(LogIpvMulti, Warning, TEXT("BalloonBurst DRAW between %d players"), BurstControllers.Num());
+	}
+	else
+	{
+		const APlayerState* WinnerPS = BurstControllers[0] ? BurstControllers[0]->PlayerState : nullptr;
+		UE_LOG(LogIpvMulti, Warning, TEXT("BalloonBurst winner: %s"),
+			WinnerPS ? *WinnerPS->GetPlayerName() : TEXT("?"));
+	}
 
 	for (FConstPlayerControllerIterator It = GetWorld()->GetPlayerControllerIterator(); It; ++It)
 	{
@@ -224,16 +302,26 @@ void ABalloonBurstGameMode::NotifyBalloonBurst(APlayerController* WinnerControll
 			continue;
 		}
 
-		if (PC == WinnerController)
+		const bool bDidBurst = BurstControllers.Contains(PC);
+		if (ABalloonBurstPlayerState* PS = PC->GetPlayerState<ABalloonBurstPlayerState>())
+		{
+			PS->SetDidWin(bDidBurst && !bIsDraw);
+			if (bDidBurst)
+			{
+				PS->SetHasBurstBalloon(true);
+			}
+		}
+
+		if (bIsDraw && bDidBurst)
+		{
+			PC->ClientShowDraw();
+		}
+		else if (!bIsDraw && bDidBurst)
 		{
 			PC->ClientShowVictory();
 		}
 		else
 		{
-			if (ABalloonBurstPlayerState* OtherPS = PC->GetPlayerState<ABalloonBurstPlayerState>())
-			{
-				OtherPS->SetDidWin(false);
-			}
 			PC->ClientShowDefeat();
 		}
 
@@ -255,9 +343,12 @@ void ABalloonBurstGameMode::HandleMatchEnded()
 	}
 
 	bReturningToHub = true;
+	bBurstWindowOpen = false;
+	PendingBurstControllers.Reset();
 	GS->SetMatchPhase(EBalloonBurstMatchPhase::Ended);
 	GetWorldTimerManager().ClearTimer(CountdownTimerHandle);
 	GetWorldTimerManager().ClearTimer(StationRefreshTimerHandle);
+	GetWorldTimerManager().ClearTimer(TieResolveTimerHandle);
 
 	UE_LOG(LogIpvMulti, Warning, TEXT("BalloonBurst match ended. Returning to hub in %.1fs"), ReturnToHubDelay);
 
@@ -475,28 +566,36 @@ void ABalloonBurstGameMode::EnsureArenaFloor()
 		return;
 	}
 
-	FActorSpawnParameters Params;
-	Params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
-
-	AStaticMeshActor* Floor = GetWorld()->SpawnActor<AStaticMeshActor>(
-		ArenaOrigin - FVector(0.0f, 0.0f, 100.0f),
-		FRotator::ZeroRotator,
-		Params);
+	// Deferred spawn so mesh/scale are set before the actor is networked to clients.
+	// AStaticMeshActor defaults to bReplicates=false, so without this only the host sees the floor.
+	const FTransform FloorTransform(FRotator::ZeroRotator, ArenaOrigin - FVector(0.0f, 0.0f, 100.0f));
+	AStaticMeshActor* Floor = GetWorld()->SpawnActorDeferred<AStaticMeshActor>(
+		AStaticMeshActor::StaticClass(),
+		FloorTransform,
+		nullptr,
+		nullptr,
+		ESpawnActorCollisionHandlingMethod::AlwaysSpawn);
 
 	if (!Floor)
 	{
 		return;
 	}
 
+	Floor->SetReplicates(true);
+	Floor->bAlwaysRelevant = true;
+	Floor->SetReplicateMovement(false);
+
 	if (UStaticMeshComponent* Mesh = Floor->GetStaticMeshComponent())
 	{
+		Mesh->SetIsReplicated(true);
 		Mesh->SetMobility(EComponentMobility::Movable);
 		Mesh->SetStaticMesh(PlaneMesh);
-		Mesh->SetWorldScale3D(FVector(20.0f, 20.0f, 1.0f));
+		Mesh->SetRelativeScale3D(FVector(20.0f, 20.0f, 1.0f));
 		Mesh->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
 		Mesh->SetCollisionProfileName(TEXT("BlockAll"));
 	}
 
+	Floor->FinishSpawning(FloorTransform);
 	bFloorSpawned = true;
 }
 

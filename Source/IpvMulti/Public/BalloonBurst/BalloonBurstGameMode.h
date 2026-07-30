@@ -27,7 +27,7 @@ public:
 	virtual void Logout(AController* Exiting) override;
 
 	/** Server: called when a player's balloon reaches max pumps and bursts. */
-	void NotifyBalloonBurst(APlayerController* WinnerController);
+	void NotifyBalloonBurst(APlayerController* BurstController);
 
 	/** Server helper used if the controller lost its balloon pointer. */
 	ABalloonBurstBalloon* FindBalloonForController(APlayerController* PC) const;
@@ -40,6 +40,13 @@ protected:
 	/** Pumps (button presses) required to burst a balloon. */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "BalloonBurst|Match", meta = (ClampMin = "1"))
 	int32 PumpsToBurst = 20;
+
+	/**
+	 * After the first burst, wait this long for other burst RPCs still in flight.
+	 * Multiple bursts in the window → draw (avoids host RTT advantage looking like a clean win).
+	 */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "BalloonBurst|Match", meta = (ClampMin = "0.05", ClampMax = "1.0"))
+	float TieGraceSeconds = 0.25f;
 
 	/** Seconds to show YOU WIN / YOU LOSE before returning to the hub. */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "BalloonBurst|Match", meta = (ClampMin = "0.5"))
@@ -67,6 +74,8 @@ protected:
 
 	void TickCountdown();
 	void StartBalloonBurstMatch();
+	void ResolveBurstWindow();
+	void FinalizeMatchResults(const TArray<APlayerController*>& BurstControllers);
 	void HandleMatchEnded();
 	void RefreshPlayerStations();
 	void EnsureArenaFloor();
@@ -82,11 +91,17 @@ protected:
 	int32 CountdownRemaining = 0;
 	bool bReturningToHub = false;
 	bool bFloorSpawned = false;
+	bool bBurstWindowOpen = false;
+	bool bResultsFinalized = false;
 
 	UPROPERTY()
 	TArray<TObjectPtr<ABalloonBurstBalloon>> SpawnedBalloons;
 
+	UPROPERTY()
+	TArray<TObjectPtr<APlayerController>> PendingBurstControllers;
+
 	FTimerHandle CountdownTimerHandle;
 	FTimerHandle ReturnToHubTimerHandle;
 	FTimerHandle StationRefreshTimerHandle;
+	FTimerHandle TieResolveTimerHandle;
 };
