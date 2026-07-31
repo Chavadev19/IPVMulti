@@ -31,7 +31,7 @@ void UBalloonBurstUI::NativeConstruct()
 	if (UTextBlock* Instructions = GetInstructions())
 	{
 		Instructions->SetText(FText::FromString(
-			TEXT("¡Balloon Burst!\nPulsa ESPACIO repetidamente para inflar tu globo.\nEl primero en reventarlo gana — ¡cuidado con los empates!")));
+			TEXT("¡Balloon Burst!\nPulsa ESPACIO repetidamente para inflar tu globo.\nEl primero en reventarlo gana")));
 	}
 	if (UTextBlock* Status = GetStatus())
 	{
